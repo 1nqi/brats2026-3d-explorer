@@ -28,8 +28,8 @@ void main() {
   vec3 p = (uSceneToVoxel * vec4(vWorld, 1.0)).xyz;
   vec3 tp = p / uDims;
   if (any(lessThan(tp, vec3(0.0))) || any(greaterThan(tp, vec3(1.0)))) discard;
-  float v = texture(uVol, tp).r;
-  float edge = smoothstep(0.1, 0.45, texture(uAux, tp).r) * smoothstep(0.0, 0.015, v);
+  float v = textureLod(uVol, tp, 0.0).r;
+  float edge = smoothstep(0.1, 0.45, textureLod(uAux, tp, 0.0).r) * smoothstep(0.0, 0.015, v);
   float a = uOpacity * edge;
   if (a <= 0.002) discard;
   vec3 c = tintLabel(vec3(windowed(v)), uAux, p, uDims);

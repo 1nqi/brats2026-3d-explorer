@@ -8,6 +8,15 @@ const projected = new THREE.Vector3();
 const MARGIN = 8;
 const TOP = 64;
 
+// Writes a style only when the value changes, so a still frame causes no style recalculation.
+function setStyle(item, part, property, value) {
+  const cache = item.styleCache || (item.styleCache = {});
+  const key = `${part}.${property}`;
+  if (cache[key] === value) return;
+  cache[key] = value;
+  item[part].style[property] = value;
+}
+
 export class Callouts {
   // obstacles() returns DOMRects (panels) that a label column must stay clear of.
   constructor(root, obstacles = () => []) {
@@ -84,7 +93,7 @@ export class Callouts {
     for (const item of this.items.values()) {
       projected.copy(item.anchor).project(camera);
       const hidden = projected.z > 1 || projected.z < -1;
-      item.el.style.visibility = hidden ? "hidden" : "visible";
+      setStyle(item, "el", "visibility", hidden ? "hidden" : "visible");
       if (hidden) continue;
       const x = (projected.x * 0.5 + 0.5) * width;
       const y = (-projected.y * 0.5 + 0.5) * height;
@@ -116,15 +125,15 @@ export class Callouts {
     const [w, h] = item.size;
     const boxLeft = Math.min(Math.max(left, MARGIN), width - w - MARGIN);
     const boxTop = Math.min(Math.max(top, TOP), height - h - MARGIN);
-    item.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
-    item.text.style.transform = `translate(${(boxLeft - x).toFixed(1)}px, ${(boxTop - y).toFixed(1)}px)`;
+    setStyle(item, "el", "transform", `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`);
+    setStyle(item, "text", "transform", `translate(${(boxLeft - x).toFixed(1)}px, ${(boxTop - y).toFixed(1)}px)`);
     if (!withLine) return;
     const endX = x <= boxLeft ? boxLeft : x >= boxLeft + w ? boxLeft + w : x;
     const endY = x > boxLeft && x < boxLeft + w ? (y < boxTop ? boxTop : boxTop + h) : boxTop + h / 2;
     const lx = endX - x;
     const ly = endY - y;
-    item.line.style.width = `${Math.hypot(lx, ly).toFixed(1)}px`;
-    item.line.style.transform = `rotate(${Math.atan2(ly, lx)}rad)`;
+    setStyle(item, "line", "width", `${Math.hypot(lx, ly).toFixed(1)}px`);
+    setStyle(item, "line", "transform", `rotate(${Math.atan2(ly, lx).toFixed(4)}rad)`);
   }
 
   layoutColumn(column, width, height) {

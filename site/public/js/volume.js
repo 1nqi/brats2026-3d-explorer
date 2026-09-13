@@ -81,8 +81,11 @@ ${LABEL_GLSL}
 
 const int MAX_STEPS = 720;
 
-float maskAt(vec3 p) { return texture(uAux, p / uDims).r; }
-float valueAt(vec3 p) { return texture(uVol, p / uDims).r; }
+// textureLod, not texture: without implicit derivatives ANGLE on Direct3D can keep these
+// loops as real loops instead of unrolling them. The textures have no mipmaps, so it is the
+// same sample.
+float maskAt(vec3 p) { return textureLod(uAux, p / uDims, 0.0).r; }
+float valueAt(vec3 p) { return textureLod(uVol, p / uDims, 0.0).r; }
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
 // Slab test that also reports the entry face normal (pointing back towards the ray origin).
@@ -264,7 +267,9 @@ void main() {
   vec3 d = normalize((uSceneToVoxel * vec4(dirW, 0.0)).xyz);
   d += vec3(equal(d, vec3(0.0))) * 1e-6;
 
-  float depth = texture(uDepth, gl_FragCoord.xy / uResolution).r;
+  // uResolution is the size of the viewport this pass renders into, which can be smaller than
+  // the depth texture; normalised coordinates line the two up.
+  float depth = textureLod(uDepth, gl_FragCoord.xy / uResolution, 0.0).r;
   float tDepth = 1e6;
   if (depth < 0.999999) {
     float viewZ = (uNear * uFar) / ((uFar - uNear) * depth - uFar);

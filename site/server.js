@@ -1,8 +1,7 @@
 // Static server for the HMNUnet 3D explorer. Node >= 20, no dependencies.
 //
 // Environment:
-//   PORT            port to listen on (Railway sets it)
-//   BASIC_AUTH      "user:password" turns on HTTP Basic auth for every path except /healthz
+//   PORT            port to listen on (Railway sets it; 8080 when unset, Railway's default target)
 //   ALLOW_INDEXING  "1" drops the noindex header (off by default: the page embeds challenge data)
 //
 // Local use: node server.js [port] [--dev]   (--dev re-reads files on every request)
@@ -14,14 +13,13 @@ import { createServer } from "node:http";
 import { createReadStream, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, extname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash } from "node:crypto";
 import { brotliCompressSync, constants as zc, createGunzip, gzipSync } from "node:zlib";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "public");
 const ARGS = process.argv.slice(2);
 const DEV = ARGS.includes("--dev");
-const PORT = Number(process.env.PORT) || Number(ARGS.find((a) => /^\d+$/.test(a))) || 3000;
-const AUTH = process.env.BASIC_AUTH || "";
+const PORT = Number(process.env.PORT) || Number(ARGS.find((a) => /^\d+$/.test(a))) || 8080;
 const INDEXING = process.env.ALLOW_INDEXING === "1";
 
 const TYPES = {
@@ -105,15 +103,6 @@ function cacheControl(url) {
   return "no-cache";
 }
 
-function authorized(req) {
-  if (!AUTH) return true;
-  const header = req.headers.authorization || "";
-  if (!header.startsWith("Basic ")) return false;
-  const given = Buffer.from(header.slice(6), "base64");
-  const expected = Buffer.from(AUTH);
-  return given.length === expected.length && timingSafeEqual(given, expected);
-}
-
 function securityHeaders(res) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -140,10 +129,6 @@ const server = createServer((req, res) => {
   if (req.method !== "GET" && req.method !== "HEAD") {
     res.writeHead(405, { Allow: "GET, HEAD" });
     return res.end();
-  }
-  if (!authorized(req)) {
-    res.writeHead(401, { "WWW-Authenticate": 'Basic realm="HMNUnet 3D", charset="UTF-8"', "Cache-Control": "no-store" });
-    return res.end("Authentication required");
   }
 
   const key = url === "/" ? "/index.html" : url;
@@ -193,9 +178,22 @@ const server = createServer((req, res) => {
   createReadStream(asset.path).pipe(res);
 });
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`hmnunet-3d on :${PORT} (${assets.size} assets, auth ${AUTH ? "on" : "off"})`);
-});
+// Listen on "::" (IPv6 and IPv4 on a dual-stack host) so the platform proxy reaches us over
+// either family; fall back to IPv4 only where IPv6 is unavailable.
+function listen(host) {
+  const onError = (error) => {
+    if (host === "::" && ["EAFNOSUPPORT", "EADDRNOTAVAIL"].includes(error.code)) return listen("0.0.0.0");
+    console.error(`cannot listen on ${host} port ${PORT}: ${error.message}`);
+    process.exit(1);
+  };
+  server.once("error", onError);
+  server.listen(PORT, host, () => {
+    server.off("error", onError);
+    const family = host === "::" ? "IPv4 + IPv6" : "IPv4";
+    console.log(`listening on port ${PORT} (${family}), ${assets.size} assets`);
+  });
+}
+listen("::");
 for (const signal of ["SIGTERM", "SIGINT"]) {
   process.on(signal, () => server.close(() => process.exit(0)));
 }

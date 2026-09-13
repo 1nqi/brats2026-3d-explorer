@@ -98,6 +98,8 @@ async function boot() {
       const manifest = await loadManifest();
       const files = await loadGroup(manifest, INITIAL_FILES, loader.progress);
       const app = createApp(renderer, manifest, files);
+      // Never keep the page behind the loader for long if shader compilation is slow.
+      await Promise.race([app.precompile(), new Promise((resolve) => setTimeout(resolve, 6000))]);
       loader.done();
       app.start();
     } catch (error) {
@@ -114,7 +116,9 @@ function createApp(renderer, manifest, files) {
   const dims = manifest.geometry.dims;
   const [ni, nj] = dims;
   const tweens = new Tweens();
-  const callouts = new Callouts($("callouts"), () => [$("dock").getBoundingClientRect()]);
+  // The dock rectangle is read on resize, not on every frame, to avoid forced layouts.
+  let dockRect = null;
+  const callouts = new Callouts($("callouts"), () => (dockRect ? [dockRect] : []));
   const t = (key, vars) => i18n.t(key, vars);
 
   // Chapter-driven state starts "closed" so the first chapter can open the cut.
@@ -289,6 +293,45 @@ function createApp(renderer, manifest, files) {
   composite.frustumCulled = false;
   compositeScene.add(composite);
 
+  // The ray-marched volume renders into its own target, into a viewport that can be smaller than
+  // the canvas while the view moves, and is then blended over the screen. At rest it renders at
+  // full size, so the still image is unchanged.
+  const volumeTarget = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false });
+  volumeTarget.texture.minFilter = THREE.LinearFilter;
+  volumeTarget.texture.magFilter = THREE.LinearFilter;
+  const blitScene = new THREE.Scene();
+  const blit = new THREE.Mesh(
+    triangle,
+    new THREE.ShaderMaterial({
+      glslVersion: THREE.GLSL3,
+      uniforms: {
+        uVolume: { value: volumeTarget.texture },
+        uScale: { value: new THREE.Vector2(1, 1) },
+        uTexel: { value: new THREE.Vector2(1, 1) },
+      },
+      vertexShader: /* glsl */ `
+        out vec2 vUv;
+        void main() { vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+      fragmentShader: /* glsl */ `
+        precision highp float;
+        in vec2 vUv;
+        out vec4 outColor;
+        uniform sampler2D uVolume;
+        uniform vec2 uScale;
+        uniform vec2 uTexel;
+        void main() {
+          outColor = texture(uVolume, min(vUv * uScale, uScale - 0.5 * uTexel));
+        }`,
+      transparent: true,
+      premultipliedAlpha: true,
+      blending: THREE.NormalBlending,
+      depthTest: false,
+      depthWrite: false,
+    }),
+  );
+  blit.frustumCulled = false;
+  blitScene.add(blit);
+
   // ---------- camera ----------
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -358,16 +401,23 @@ function createApp(renderer, manifest, files) {
   let cssW = 1;
   let cssH = 1;
   const bufferSize = new THREE.Vector2();
+  const canvasSize = new THREE.Vector2();
 
   function resize() {
     cssW = window.innerWidth;
     cssH = window.innerHeight;
-    renderer.setPixelRatio(dpr);
-    renderer.setSize(cssW, cssH, false);
+    // Assigning a canvas size, even the same one, clears and reallocates the drawing buffer.
+    // Chapters call resize() for the view offset, so touch the canvas only on a real change.
+    renderer.getSize(canvasSize);
+    if (renderer.getPixelRatio() !== dpr || canvasSize.x !== cssW || canvasSize.y !== cssH) {
+      renderer.setPixelRatio(dpr);
+      renderer.setSize(cssW, cssH, false);
+    }
     renderer.getDrawingBufferSize(bufferSize);
     renderTarget.setSize(bufferSize.x, bufferSize.y);
-    volume.uniforms.uResolution.value.copy(bufferSize);
+    volumeTarget.setSize(bufferSize.x, bufferSize.y);
     composite.material.uniforms.uAspect.value.set(cssW / cssH, 1);
+    dockRect = $("dock").getBoundingClientRect();
     camera.aspect = cssW / cssH;
     const story = $("story").getBoundingClientRect();
     const wide = window.matchMedia("(min-width: 821px)").matches;
@@ -393,25 +443,41 @@ function createApp(renderer, manifest, files) {
     dirty = true;
   }
 
-  let slowFrames = 0;
-  let fastFrames = 0;
-  function adaptQuality(dt) {
-    if (dt > 250) return;
-    if (dt > 34) {
-      slowFrames += 1;
-      fastFrames = 0;
-    } else if (dt < 17.5) {
-      fastFrames += 1;
-      slowFrames = Math.max(0, slowFrames - 1);
+  // While the view moves, the volume pass renders at quality.motion of the canvas resolution;
+  // once it settles, one frame renders at quality.idle. The motion scale aims at the display's
+  // own refresh rate: a few late frames lower it quickly, a long run of on-time frames raises it
+  // a little, so it settles just below the point where frames start to drop.
+  const quality = { motion: 0.6, idle: 1, min: 0.3 };
+  const round2 = (value) => Math.round(value * 100) / 100;
+  let refresh = 1000 / 60;
+  let lastFrameAt = 0;
+  let lateFrames = 0;
+  let onTimeFrames = 0;
+
+  function measureFrame(now) {
+    const dt = lastFrameAt ? now - lastFrameAt : 0;
+    lastFrameAt = now;
+    if (dt <= 0 || dt > 250) return;
+    // the shortest recent interval approximates the refresh period (60, 120, 144 Hz)
+    refresh = Math.min(dt, refresh + 0.005);
+    if (dt > refresh * 1.45) {
+      lateFrames += 1;
+      onTimeFrames = 0;
+    } else if (dt < refresh * 1.2) {
+      onTimeFrames += 1;
+      lateFrames = 0;
     }
-    if (slowFrames > 24 && dpr > 0.75) {
-      dpr = Math.max(0.75, dpr - 0.25);
-      slowFrames = 0;
+    if (lateFrames >= 6 && quality.motion > quality.min) {
+      quality.motion = Math.max(quality.min, round2(quality.motion - 0.1));
+      lateFrames = 0;
+    } else if (lateFrames >= 30 && dpr > 1) {
+      // still late at the smallest volume scale: render the whole canvas at 1x, once
+      dpr = 1;
+      lateFrames = 0;
       resize();
-    } else if (fastFrames > 300 && dpr < Math.min(maxDpr, 1.5)) {
-      dpr = Math.min(maxDpr, dpr + 0.25);
-      fastFrames = 0;
-      resize();
+    } else if (onTimeFrames >= 90 && quality.motion < 1) {
+      quality.motion = Math.min(1, round2(quality.motion + 0.05));
+      onTimeFrames = 0;
     }
   }
 
@@ -516,7 +582,7 @@ function createApp(renderer, manifest, files) {
     }
   }
 
-  function renderFrame() {
+  function renderFrame(scale = 1) {
     applyState();
     renderer.setRenderTarget(renderTarget);
     renderer.clear(true, true, false);
@@ -524,32 +590,84 @@ function createApp(renderer, manifest, files) {
     renderer.setRenderTarget(null);
     renderer.render(compositeScene, orthoCamera);
     if (volume.mesh.visible) {
+      const width = Math.max(1, Math.round(bufferSize.x * scale));
+      const height = Math.max(1, Math.round(bufferSize.y * scale));
       const u = volume.uniforms;
       u.uDepth.value = renderTarget.depthTexture;
+      u.uResolution.value.set(width, height);
       camera.getWorldDirection(u.uCamDir.value);
       u.uNear.value = camera.near;
       u.uFar.value = camera.far;
+      volumeTarget.viewport.set(0, 0, width, height);
+      renderer.setRenderTarget(volumeTarget);
+      renderer.clear(true, false, false);
       renderer.render(volumeScene, camera);
+      renderer.setRenderTarget(null);
+      blit.material.uniforms.uScale.value.set(width / volumeTarget.width, height / volumeTarget.height);
+      blit.material.uniforms.uTexel.value.set(1 / volumeTarget.width, 1 / volumeTarget.height);
+      renderer.render(blitScene, orthoCamera);
     }
     renderer.render(overlayScene, camera);
     callouts.update(camera, cssW, cssH);
   }
 
-  let lastRendered = performance.now();
+  const REFINE_DELAY = 140;
+  let needsRefine = false;
+  let lastActiveAt = 0;
   function frame(now) {
     requestAnimationFrame(frame);
     const wasAnimating = camAnimating;
     const animating = tweens.update(now);
     if (wasAnimating || camAnimating) applyCamera();
     const moved = controls.update();
-    if (!(animating || moved || dirty || controls.autoRotate)) {
-      lastRendered = now;
+    if (animating || moved || dirty || controls.autoRotate) {
+      dirty = false;
+      measureFrame(now);
+      renderFrame(quality.motion);
+      needsRefine = quality.motion < quality.idle;
+      lastActiveAt = now;
       return;
     }
-    dirty = false;
-    renderFrame();
-    adaptQuality(now - lastRendered);
-    lastRendered = now;
+    lastFrameAt = 0;
+    if (needsRefine && now - lastActiveAt > REFINE_DELAY) {
+      needsRefine = false;
+      renderFrame(quality.idle);
+    }
+  }
+
+  // Compiles every shader up front, including objects that only appear in later chapters, so
+  // the first visit to a chapter does not stall on shader compilation.
+  async function precompile() {
+    const roots = [
+      [scene, camera],
+      [volumeScene, camera],
+      [overlayScene, camera],
+      [compositeScene, orthoCamera],
+      [blitScene, orthoCamera],
+    ];
+    const forced = [];
+    for (const [root] of roots) {
+      root.traverse((object) => {
+        if (!object.visible) {
+          object.visible = true;
+          forced.push(object);
+        }
+      });
+    }
+    try {
+      for (const [root, view] of roots) {
+        if (renderer.compileAsync) await renderer.compileAsync(root, view);
+        else renderer.compile(root, view);
+      }
+      // upload the large 3D textures now, behind the loader, instead of on the first frame
+      renderer.initTexture(aux);
+      renderer.initTexture(volumes.t1c);
+    } catch (error) {
+      console.warn("shader precompile skipped", error);
+    } finally {
+      forced.forEach((object) => { object.visible = false; });
+      dirty = true;
+    }
   }
 
   // ---------- story ----------
@@ -828,6 +946,7 @@ function createApp(renderer, manifest, files) {
         progress.textContent = `${Math.round((100 * loaded) / manifest.files[name].bytes)}%`;
       });
       volumes[m] = createVolumeTexture(bytes, dims);
+      renderer.initTexture(volumes[m]);
       modality = m;
       progress.hidden = true;
     } catch (error) {
@@ -888,27 +1007,34 @@ function createApp(renderer, manifest, files) {
   });
 
   new ResizeObserver(() => resize()).observe($("story"));
+  new ResizeObserver(() => {
+    dockRect = $("dock").getBoundingClientRect();
+  }).observe($("dock"));
   window.addEventListener("resize", resize);
 
   if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
     window.hmnunet = {
-      S, L, trim, volume, camera, controls, cam, tweens, show: showChapter,
+      S, L, trim, volume, camera, controls, cam, tweens, quality, renderer, show: showChapter,
+      get dpr() { return dpr; },
       redraw: () => { dirty = true; },
       // rAF does not fire in a hidden tab; this renders one frame synchronously for inspection
-      renderNow(finishTweens = true) {
+      renderNow(finishTweens = true, scale = 1) {
         const now = performance.now() + (finishTweens ? 1e5 : 0);
         const wasAnimating = camAnimating;
         tweens.update(now);
         if (wasAnimating || camAnimating) applyCamera();
         controls.update();
-        renderFrame();
+        renderFrame(scale);
       },
     };
   }
 
   return {
+    precompile,
     start() {
       buildTicks();
+      $("prevBtn").addEventListener("click", () => showChapter(current - 1));
+      $("nextBtn").addEventListener("click", () => showChapter(current === chapters.length - 1 ? 0 : current + 1));
       buildDock();
       buildAbout();
       resize();
