@@ -36,11 +36,6 @@ four modalities, per-class layers.
   </tr>
 </table>
 
-<p align="center">
-  <img src="docs/preview/mobile.jpg" width="260" alt="The same page on a phone">
-  <br><sub>On a phone</sub>
-</p>
-
 ## What is real and what is not
 
 | On screen | Source |
