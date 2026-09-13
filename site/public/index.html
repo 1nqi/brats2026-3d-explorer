@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>HMNUnet 3D</title>
+  <meta name="description" content="Interactive 3D walkthrough of the HMNUnet pipeline for BraTS-PEDs 2026 Task 2 on one pediatric brain MRI.">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0a0c10">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="vendor/fonts/fonts.css">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="modulepreload" href="vendor/three/three.min.js">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <div class="app" id="app">
+    <canvas class="scene" id="scene" tabindex="0" role="img" data-i18n-aria="sceneLabel"></canvas>
+    <div class="callouts" id="callouts" aria-hidden="true"></div>
+
+    <header class="top">
+      <a class="brand" href="https://github.com/1nqi/hmnunet-brats2026-task2" target="_blank" rel="noopener">
+        <span class="brand-name">HMNUnet</span>
+        <span class="brand-sub" data-i18n="brandSub">BraTS-PEDs 2026, Task 2</span>
+      </a>
+      <div class="top-actions">
+        <div class="seg seg-compact" role="group" id="langSeg" data-i18n-aria="language">
+          <button type="button" data-lang="en">EN</button>
+          <button type="button" data-lang="ru">RU</button>
+        </div>
+        <button type="button" class="btn-ghost" id="aboutBtn" aria-haspopup="dialog">
+          <span class="icon" data-icon="info"></span><span data-i18n="about">About the data</span>
+        </button>
+        <a class="btn-icon" href="https://github.com/1nqi/hmnunet-brats2026-task2" target="_blank" rel="noopener" data-i18n-aria="repo">
+          <span class="icon" data-icon="github-logo"></span>
+        </a>
+      </div>
+    </header>
+
+    <section class="story" id="story" aria-labelledby="storyTitle">
+      <div class="story-scroll" id="storyScroll">
+        <h1 class="story-title" id="storyTitle"></h1>
+        <div class="story-body" id="storyBody"></div>
+      </div>
+      <nav class="story-nav" data-i18n-aria="chapters">
+        <button type="button" class="btn-icon" id="prevBtn" data-i18n-aria="prev"><span class="icon" data-icon="caret-left"></span></button>
+        <div class="ticks-wrap">
+          <ol class="ticks" id="ticks"></ol>
+          <span class="tick-name" id="tickName"></span>
+        </div>
+        <button type="button" class="btn-primary" id="nextBtn"><span id="nextLabel"></span><span class="icon" data-icon="caret-right"></span></button>
+      </nav>
+    </section>
+
+    <aside class="dock" id="dock" data-i18n-aria="controls">
+      <button type="button" class="dock-toggle" id="dockToggle" aria-expanded="false" aria-controls="dockPanel">
+        <span class="icon" data-icon="sliders-horizontal"></span><span data-i18n="controls">View controls</span>
+      </button>
+      <div class="dock-panel" id="dockPanel">
+        <div class="dock-row">
+          <span class="dock-label" data-i18n="mri">MRI</span>
+          <div class="seg" role="group" id="modSeg" data-i18n-aria="mri"></div>
+        </div>
+        <div class="dock-row">
+          <span class="dock-label" data-i18n="view">View</span>
+          <div class="seg" role="group" id="viewSeg" data-i18n-aria="view"></div>
+        </div>
+        <div class="dock-row">
+          <span class="dock-label" data-i18n="layers">Layers</span>
+          <div class="chips" role="group" id="layerChips" data-i18n-aria="layers"></div>
+        </div>
+        <div class="dock-sliders" id="sliceSliders" hidden></div>
+        <div class="dock-tools">
+          <button type="button" class="btn-icon" id="resetBtn" data-i18n-aria="resetView" data-i18n-title="resetView"><span class="icon" data-icon="arrow-counter-clockwise"></span></button>
+          <button type="button" class="btn-icon" id="rotateBtn" aria-pressed="false" data-i18n-aria="autoRotate" data-i18n-title="autoRotate"><span class="icon" data-icon="play"></span></button>
+          <button type="button" class="btn-icon" id="fullBtn" data-i18n-aria="fullscreen" data-i18n-title="fullscreen"><span class="icon" data-icon="arrows-out"></span></button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="hint" id="hint" hidden>
+      <span class="icon" data-icon="cursor-click"></span><span data-i18n="hint">Drag to rotate, scroll to zoom</span>
+    </div>
+
+    <div class="loader" id="loader" role="status" aria-live="polite">
+      <div class="loader-card">
+        <p class="loader-title" data-i18n="loading">Loading the MRI case</p>
+        <div class="loader-bar"><span id="loaderFill"></span></div>
+        <p class="loader-meta" id="loaderMeta">0%</p>
+        <div class="loader-error" id="loaderError" hidden>
+          <p id="loaderErrorText"></p>
+          <button type="button" class="btn-primary" id="retryBtn" data-i18n="retry">Try again</button>
+        </div>
+      </div>
+    </div>
+
+    <dialog class="about" id="about" aria-labelledby="aboutTitle">
+      <div class="about-head">
+        <h2 id="aboutTitle" data-i18n="aboutTitle">About this page</h2>
+        <button type="button" class="btn-icon" id="aboutClose" data-i18n-aria="close"><span class="icon" data-icon="x"></span></button>
+      </div>
+      <div class="about-body" id="aboutBody"></div>
+    </dialog>
+  </div>
+  <noscript><p class="noscript">This page needs JavaScript and WebGL 2.</p></noscript>
+</body>
+</html>

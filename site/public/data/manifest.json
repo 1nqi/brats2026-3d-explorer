@@ -1,0 +1,312 @@
+{
+ "case": "BraTS-PED-00001-000",
+ "version": "8339ade4393a",
+ "source": {
+  "mask": "BraTS-PED-00001-000.nii.gz",
+  "mask_sha256": "8ceee98f466aaad232695ec0e540b4c7b8810159183f0f16b71db3ed602d1ed1",
+  "modalities": {
+   "t1n": {
+    "file": "BraTS-PED-00001-000-t1n.nii.gz",
+    "sha256": "72bca7ec77a89066bf918f4b99a3787ed0f7ce4732635d4b26f035b4ed2f41ae"
+   },
+   "t1c": {
+    "file": "BraTS-PED-00001-000-t1c.nii.gz",
+    "sha256": "bd0bf26f1c613195f209190dbee5f0a6994a6e3f6aba61588690059ed4384400"
+   },
+   "t2w": {
+    "file": "BraTS-PED-00001-000-t2w.nii.gz",
+    "sha256": "d6abee30a4bf3670b8960ab229e86438a2305d82873a333a9aeb5a04ee31b81d"
+   },
+   "t2f": {
+    "file": "BraTS-PED-00001-000-t2f.nii.gz",
+    "sha256": "219387de7058aaa4a74927346bde33e65bcb6c308673815c5a69d966d85d129e"
+   }
+  },
+  "mask_provenance": "hybrid ensemble H (XL250 + OS5 + L), RC1 container run, 17 Jul 2026"
+ },
+ "geometry": {
+  "full_shape": [
+   240,
+   240,
+   155
+  ],
+  "spacing_mm": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "voxel_axes": "i = left, j = posterior, k = superior",
+  "crop_origin": [
+   9,
+   24,
+   1
+  ],
+  "dims": [
+   225,
+   206,
+   153
+  ]
+ },
+ "modalities": [
+  "t1n",
+  "t1c",
+  "t2w",
+  "t2f"
+ ],
+ "windows": {
+  "t1n": {
+   "low": 0.0,
+   "high": 933.499
+  },
+  "t1c": {
+   "low": 0.0,
+   "high": 966.875
+  },
+  "t2w": {
+   "low": 0.0,
+   "high": 2222.083
+  },
+  "t2f": {
+   "low": 0.0,
+   "high": 736.21
+  }
+ },
+ "counts": {
+  "ET": 5394,
+  "NETC": 82258,
+  "CC": 360
+ },
+ "components": {
+  "ET": [
+   {
+    "voxels": 3529,
+    "centroid": [
+     103.95,
+     132.49,
+     79.17
+    ]
+   },
+   {
+    "voxels": 1865,
+    "centroid": [
+     108.3,
+     115.36,
+     92.33
+    ]
+   }
+  ],
+  "NETC": [
+   {
+    "voxels": 79939,
+    "centroid": [
+     104.15,
+     126.34,
+     85.55
+    ]
+   },
+   {
+    "voxels": 2319,
+    "centroid": [
+     109.32,
+     133.21,
+     44.48
+    ]
+   }
+  ],
+  "CC": [
+   {
+    "voxels": 206,
+    "centroid": [
+     102.7,
+     125.6,
+     70.97
+    ]
+   },
+   {
+    "voxels": 84,
+    "centroid": [
+     103.24,
+     114.05,
+     88.35
+    ]
+   },
+   {
+    "voxels": 70,
+    "centroid": [
+     93.01,
+     118.16,
+     80.91
+    ]
+   }
+  ]
+ },
+ "tc_components": 2,
+ "tc_voxels": 88012,
+ "tc_centroid": [
+  104.36,
+  126.52,
+  84.32
+ ],
+ "roi": {
+  "margin": 16,
+  "tight": [
+   [
+    71,
+    149
+   ],
+   [
+    91,
+    164
+   ],
+   [
+    37,
+    111
+   ]
+  ],
+  "box": [
+   [
+    55,
+    165
+   ],
+   [
+    75,
+    180
+   ],
+   [
+    21,
+    127
+   ]
+  ],
+  "dims": [
+   110,
+   105,
+   106
+  ],
+  "voxels": 1224300,
+  "fraction_of_image": 0.13713,
+  "sdt_clip": 20,
+  "sdt_scale": 6.35
+ },
+ "slices": {
+  "axis": "k",
+  "index": 84,
+  "width": 225,
+  "height": 206,
+  "order": [
+   "t1n",
+   "t1c",
+   "t2w",
+   "t2f"
+  ]
+ },
+ "proposal_simulation": {
+  "voxels": 2400,
+  "rule": "NETC voxels ordered by distance to ET, seeded ties"
+ },
+ "meshes": [
+  {
+   "name": "ET",
+   "vertices": 5179,
+   "triangles": 10354,
+   "position_scale": 0.015625,
+   "index_type": "uint16",
+   "position": [
+    0,
+    31074
+   ],
+   "normal": [
+    31076,
+    15537
+   ],
+   "index": [
+    46616,
+    62124
+   ]
+  },
+  {
+   "name": "NETC",
+   "vertices": 29494,
+   "triangles": 58972,
+   "position_scale": 0.015625,
+   "index_type": "uint16",
+   "position": [
+    108740,
+    176964
+   ],
+   "normal": [
+    285704,
+    88482
+   ],
+   "index": [
+    374188,
+    353832
+   ]
+  },
+  {
+   "name": "CC",
+   "vertices": 522,
+   "triangles": 1032,
+   "position_scale": 0.015625,
+   "index_type": "uint16",
+   "position": [
+    728020,
+    3132
+   ],
+   "normal": [
+    731152,
+    1566
+   ],
+   "index": [
+    732720,
+    6192
+   ]
+  }
+ ],
+ "files": {
+  "masks.bin": {
+   "bytes": 14183100,
+   "gzip": 1177225,
+   "sha256": "50dded1b9599f1fd83617cbe40dad351501e8ff794da361b50bd4b01200ff2b1"
+  },
+  "vol_t1n.bin": {
+   "bytes": 7091550,
+   "gzip": 2585489,
+   "sha256": "6719b6d994d86bc8ed04346b5e634506b616d7113cd3e166b049f533521bd798"
+  },
+  "vol_t1c.bin": {
+   "bytes": 7091550,
+   "gzip": 2540467,
+   "sha256": "1c206212e26a32860c6ec2fb8832ae99f7b19cbae859a8f69d9ba5104b117a1e"
+  },
+  "vol_t2w.bin": {
+   "bytes": 7091550,
+   "gzip": 2448956,
+   "sha256": "a15e442cdb4a6de894966c4be806ebffb9cfafd52fe00e29ee55f38bf37a792c"
+  },
+  "vol_t2f.bin": {
+   "bytes": 7091550,
+   "gzip": 2576737,
+   "sha256": "dc4e553f4e485929f414653a43ad78b3be2e08cae5d9c22d5949ab2e19b4d7e7"
+  },
+  "slices.bin": {
+   "bytes": 185400,
+   "gzip": 84943,
+   "sha256": "20f45b252a0b0c03a6bd40dc450903a0eb97184c5146764b812a13d2790ad274"
+  },
+  "sdt.bin": {
+   "bytes": 1224300,
+   "gzip": 243145,
+   "sha256": "2eb8ee13fe8ff2c468d2b8f5eb21eaf9cb08b57efbae24f6678a59d95a27003b"
+  },
+  "meshes.bin": {
+   "bytes": 738912,
+   "gzip": 497556,
+   "sha256": "7e687ed1856b3ff21350f6492c866bae253fa03311de573c3880abb87cd2c5d3"
+  },
+  "proposal.bin": {
+   "bytes": 7200,
+   "gzip": 5682,
+   "sha256": "0df476f882ef7451328206520de83142aa02645832a20cd1c495818ee6c40ccd"
+  }
+ }
+}

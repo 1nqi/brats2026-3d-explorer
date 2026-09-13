@@ -1,0 +1,13 @@
+{
+  "name": "hmnunet-3d",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interactive 3D walkthrough of the HMNUnet BraTS-PEDs 2026 Task 2 pipeline on one MRI case.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js"
+  }
+}
